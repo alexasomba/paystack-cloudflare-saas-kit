@@ -90,7 +90,7 @@ Configure Paystack in your application:
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 // Initialize payment
-const initializePayment = async (email, amount) => {
+const initializePayment = async (email: string, amount: number): Promise<any> => {
   const response = await fetch('https://api.paystack.co/transaction/initialize', {
     method: 'POST',
     headers: {
@@ -107,7 +107,7 @@ const initializePayment = async (email, amount) => {
 };
 
 // Verify payment
-const verifyPayment = async (reference) => {
+const verifyPayment = async (reference: string): Promise<any> => {
   const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
     method: 'GET',
     headers: {
@@ -122,7 +122,7 @@ For subscriptions:
 
 ```ts
 // Create subscription plan
-const createPlan = async (name, amount, interval) => {
+const createPlan = async (name: string, amount: number, interval: string): Promise<any> => {
   const response = await fetch('https://api.paystack.co/plan', {
     method: 'POST',
     headers: {
@@ -139,7 +139,7 @@ const createPlan = async (name, amount, interval) => {
 };
 
 // Subscribe customer
-const subscribeCustomer = async (customer, plan) => {
+const subscribeCustomer = async (customer: string, plan: string): Promise<any> => {
   const response = await fetch('https://api.paystack.co/subscription', {
     method: 'POST',
     headers: {
@@ -199,7 +199,7 @@ npx wrangler pages preview
 ```ts
 import crypto from 'crypto';
 
-const verifyPaystackWebhook = (payload, signature) => {
+const verifyPaystackWebhook = (payload: any, signature: string): boolean => {
   const hash = crypto
     .createHmac('sha512', process.env.PAYSTACK_SECRET_KEY)
     .update(JSON.stringify(payload))
