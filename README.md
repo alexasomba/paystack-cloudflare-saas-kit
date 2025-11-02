@@ -86,24 +86,35 @@ export const auth = betterAuth({
 Configure Paystack in your application:
 
 ```ts
-import Paystack from 'paystack-node';
-
-const paystack = new Paystack(process.env.PAYSTACK_SECRET_KEY);
+// Using the Paystack API directly with fetch
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 // Initialize payment
 const initializePayment = async (email, amount) => {
-  const response = await paystack.transaction.initialize({
-    email,
-    amount: amount * 100, // amount in kobo
-    callback_url: 'https://yourapp.com/payment/callback',
+  const response = await fetch('https://api.paystack.co/transaction/initialize', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      amount: amount * 100, // amount in kobo
+      callback_url: 'https://yourapp.com/payment/callback',
+    }),
   });
-  return response;
+  return response.json();
 };
 
 // Verify payment
 const verifyPayment = async (reference) => {
-  const response = await paystack.transaction.verify(reference);
-  return response;
+  const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
+    },
+  });
+  return response.json();
 };
 ```
 
@@ -112,21 +123,35 @@ For subscriptions:
 ```ts
 // Create subscription plan
 const createPlan = async (name, amount, interval) => {
-  const response = await paystack.plan.create({
-    name,
-    amount: amount * 100,
-    interval, // 'daily', 'weekly', 'monthly', 'yearly'
+  const response = await fetch('https://api.paystack.co/plan', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name,
+      amount: amount * 100,
+      interval, // 'daily', 'weekly', 'monthly', 'yearly'
+    }),
   });
-  return response;
+  return response.json();
 };
 
 // Subscribe customer
 const subscribeCustomer = async (customer, plan) => {
-  const response = await paystack.subscription.create({
-    customer,
-    plan,
+  const response = await fetch('https://api.paystack.co/subscription', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      customer,
+      plan,
+    }),
   });
-  return response;
+  return response.json();
 };
 ```
 
@@ -182,30 +207,37 @@ const verifyPaystackWebhook = (payload, signature) => {
   return hash === signature;
 };
 
-// Webhook endpoint
-app.post('/api/webhooks/paystack', async (req) => {
-  const signature = req.headers['x-paystack-signature'];
-  
-  if (!verifyPaystackWebhook(req.body, signature)) {
-    return new Response('Invalid signature', { status: 400 });
+// Webhook endpoint (Cloudflare Workers example)
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method === 'POST' && new URL(request.url).pathname === '/api/webhooks/paystack') {
+      const signature = request.headers.get('x-paystack-signature');
+      const body = await request.json();
+      
+      if (!verifyPaystackWebhook(body, signature)) {
+        return new Response('Invalid signature', { status: 400 });
+      }
+      
+      const event = body;
+      
+      switch (event.event) {
+        case 'charge.success':
+          // Handle successful payment
+          break;
+        case 'subscription.create':
+          // Handle new subscription
+          break;
+        case 'subscription.disable':
+          // Handle cancelled subscription
+          break;
+      }
+      
+      return new Response('OK', { status: 200 });
+    }
+    
+    return new Response('Not Found', { status: 404 });
   }
-  
-  const event = req.body;
-  
-  switch (event.event) {
-    case 'charge.success':
-      // Handle successful payment
-      break;
-    case 'subscription.create':
-      // Handle new subscription
-      break;
-    case 'subscription.disable':
-      // Handle cancelled subscription
-      break;
-  }
-  
-  return new Response('OK', { status: 200 });
-});
+};
 ```
 
 ## Troubleshooting
